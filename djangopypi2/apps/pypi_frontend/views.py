@@ -11,6 +11,7 @@ from ..pypi_packages.models import Release
 from .models import MirrorSite
 from . import xmlrpc_views
 from . import distutils_request
+from . import distutils_views
 
 @csrf_exempt
 def index(request):
@@ -34,10 +35,17 @@ def simple_index(request):
 
 def _mirror_if_not_found(proxy_folder):
     def decorator(func):
-        def internal(request, package_name):
+        def internal(request, package_name, version=None):
             try:
-                return func(request, package_name)
+                return func(request, package_name, version)
             except Http404:
+                is_cached = distutils_views.cache_pypi_package(request, package_name, version)
+                if is_cached: #got it, try again
+                    try:
+                        return func(request, package_name, version)
+                    except Http404: #fuck it
+                        pass
+
                 for mirror_site in MirrorSite.objects.filter(enabled=True):
                     url = '/'.join([mirror_site.url.rstrip('/'), proxy_folder, package_name])
                     mirror_site.logs.create(action='Redirect to ' + url)
@@ -47,7 +55,7 @@ def _mirror_if_not_found(proxy_folder):
     return decorator
 
 @_mirror_if_not_found('simple')
-def simple_details(request, package_name):
+def simple_details(request, package_name, version=None):
     try:
         package = Package.objects.get(name__iexact=package_name)
     except Package.DoesNotExist:
@@ -60,8 +68,23 @@ def simple_details(request, package_name):
                               context_instance=RequestContext(request, dict(package=package)),
                               mimetype='text/html')
 
+@_mirror_if_not_found('simple')
+def simple_release_details(request, package_name, version):
+    try:
+        release = Release.objects.get(package__name__iexact=package_name, version=version)
+    except Release.DoesNotExist:
+        release = get_object_or_404(Release, package__name__iexact=package_name.replace('_', '-'), version=version)
+    package = release.package
+    # If the package we found is not exactly the same as the name the user typed, redirect
+    # to the proper url:
+    if package.name != package_name:
+        return HttpResponseRedirect(reverse('djangopypi2-simple-package-release-info', kwargs=dict(package_name=package.name, version=version)))
+    return render_to_response('pypi_frontend/package_detail_simple.html',
+                              context_instance=RequestContext(request, dict(package=package)),
+                              mimetype='text/html')
+
 @_mirror_if_not_found('pypi')
-def package_details(request, package_name):
+def package_details(request, package_name, version=None):
     package = get_object_or_404(Package, name=package_name)
     return HttpResponseRedirect(package.get_absolute_url())
 
