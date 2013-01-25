@@ -46,6 +46,7 @@ setup(
         'setuptools',
         'pkginfo',
         'docutils',
+        'requests',
     ],
 
     setup_requires=[
