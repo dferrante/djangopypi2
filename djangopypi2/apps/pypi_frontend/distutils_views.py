@@ -32,7 +32,7 @@ class BadRequest(Exception):
 class Forbidden(Exception):
     pass
 
-#@basic_auth
+@basic_auth
 @transaction.commit_manually
 def register_or_upload(request):
     try:
