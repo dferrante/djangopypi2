@@ -252,7 +252,7 @@ def cache_pypi_package(request, package_name, version):
         class FakeRequest:
             POST = data
             FILES = {'content': tempfile}
-            user = User.objects.get(id=1)
+            user = User.objects.get(id=settings.PACKAGE_CACHE_USER_ID)
             META = request.META
             method = 'POST'
 
