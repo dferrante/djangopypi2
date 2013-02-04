@@ -200,13 +200,15 @@ ACTION_VIEWS = dict(
 )
 
 def cache_pypi_package(request, package_name, version):
+    proxies = settings.PROXIES
+
     if version:
         jsonurl = 'http://pypi.python.org/pypi/%s/%s/json' % (package_name, version)
     else:
         jsonurl = 'http://pypi.python.org/pypi/%s/json' % (package_name)
 
     try:
-        req = requests.get(jsonurl)
+        req = requests.get(jsonurl, proxies=proxies)
         if req.status_code != 200:
             if req.status_code == 404:
                 #try with underscores
@@ -215,7 +217,7 @@ def cache_pypi_package(request, package_name, version):
                     jsonurl = 'http://pypi.python.org/pypi/%s/%s/json' % (package_name, version)
                 else:
                     jsonurl = 'http://pypi.python.org/pypi/%s/json' % (package_name)
-                req = requests.get(jsonurl)
+                req = requests.get(jsonurl, proxies=proxies)
                 if req.status_code != 200:
                     return False
             else:
@@ -241,7 +243,7 @@ def cache_pypi_package(request, package_name, version):
         data = QueryDict(urllib.urlencode(data), mutable=True)
 
         filename = urlsplit(packageurl).path.split('/')[-1]
-        package_content = requests.get(packageurl).content
+        package_content = requests.get(packageurl, proxies=proxies).content
         tempfilehandler = TemporaryFileUploadHandler()
         tempfilehandler.new_file('content', filename, 'who/cares', len(package_content))
         tempfilehandler.receive_data_chunk(package_content, 0)
